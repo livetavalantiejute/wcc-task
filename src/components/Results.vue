@@ -1,6 +1,6 @@
 <template>
   <div class="autocomplete">
-    <form class="autocomplete__form">
+    <form class="autocomplete__form" @submit="addImage">
       <div class="input-container">
         <span class="input-container__icon">
           <Icon fill="#fff"><IconMovie /></Icon>
@@ -15,10 +15,12 @@
             name="search"
             autocomplete="off"
             v-model="search"
-            @input="filterResults"
+            @input="
+              loadData();
+              showResults();
+            "
             @focus="
               changeLayout();
-              filterResults();
             "
             @blur="returnLayout"
           />
@@ -33,6 +35,7 @@
     </form>
   </div>
   <ul class="results">
+    <li class="result loader">Loading...</li>
     <li
       class="result"
       v-for="(result, i) in resultsMax"
@@ -40,9 +43,9 @@
       @click="selectOption(result.title)"
     >
       <h3 class="result__title">{{ result.title }}</h3>
-        <h4 class="result__about">
-          {{ result.rating }} Rating, {{ result.year }}
-        </h4>
+      <h4 class="result__about">
+        {{ result.vote_average }} Rating, {{ parseInt(result.release_date) }}
+      </h4>
     </li>
   </ul>
 </template>
@@ -53,11 +56,6 @@ import IconMovie from "./icons/IconMovie.vue";
 import IconSearch from "./icons/IconSearch.vue";
 
 export default {
-  props: {
-    items: {
-      type: Array,
-    },
-  },
   data() {
     return {
       results: [],
@@ -74,6 +72,22 @@ export default {
     };
   },
   methods: {
+    loadData: function () {
+      //fetching data from api if search length is more than 3
+      if (this.search.length >= this.minChar) {
+        fetch(
+          `https://api.themoviedb.org/3/search/movie?api_key=2b7e82df2c1987e77309eccb59631802&language=en-US&query=${this.search}`
+        )
+          .then((response) => response.json())
+          .then((json) => {
+            document.querySelector(".loader").style.display = "none";
+            this.results = json.results;
+            console.log(this.resultsMax)
+          });
+      } else {
+        this.results = [];
+      }
+    },
     variables() {
       //defining variables seperately to be used in later methods
       this.input = document.querySelector("input.search-input");
@@ -82,16 +96,8 @@ export default {
       this.icon = document.querySelector(".search-container__icon");
       this.placeholder = document.querySelector(".input-placeholder");
     },
-    filterResults() {
-      if (this.search.length >= this.minChar) {
-        this.results = this.items.filter(
-          (item) =>
-            item.title.toLowerCase().indexOf(this.search.toLowerCase()) > -1
-        );
-      } else {
-        this.results = [];
-      }
-
+    showResults() {
+      //show results container
       if (this.results.length) {
         this.resultsContainer.classList.add("results--show");
       } else {
@@ -99,11 +105,13 @@ export default {
       }
     },
     selectOption(result) {
+      //change input value to selected result
       this.search = result;
       this.results = [];
       this.placeholder.classList.add("hidden");
     },
     changeLayout() {
+      //change layout of input element
       this.placeholder.classList.remove("hidden");
       this.placeholder.classList.add("input-placeholder--small");
       this.input.classList.add("expanded");
@@ -117,6 +125,7 @@ export default {
       this.resultsLayout();
     },
     returnLayout() {
+      //input layout return to initial
       this.input.classList.remove("expanded");
       this.input.style.width = "100%";
       this.input.style.top = "0";
@@ -132,6 +141,7 @@ export default {
       this.resultsContainer.classList.remove("results--show");
     },
     resultsLayout() {
+      //change results container layout
       this.resultsContainer = document.querySelector(".results");
       this.resultItems = document.querySelectorAll(".result");
 
@@ -139,25 +149,22 @@ export default {
         this.input.getBoundingClientRect().top + this.input.scrollHeight + "px";
       this.resultsContainer.style.left = this.rect.left + "px";
       this.resultsContainer.style.width = this.input.offsetWidth + "px";
-      console.log(this.resultItems);
-      this.resultItems.forEach(function () {
-        console.log(this);
-      });
     },
   },
   computed: {
     resultsMax() {
+      //show limited amount of titles
       return this.limit ? this.results.slice(0, this.limit) : this.results;
     },
+  },
+  mounted() {
+    //initialize variables
+    this.variables();
   },
   components: {
     Icon,
     IconMovie,
     IconSearch,
-  },
-  mounted() {
-    this.variables();
-    // this.resultsLayout();
   },
 };
 </script>
@@ -187,6 +194,7 @@ $mid-gray: rgb(109, 109, 109);
     margin-left: 5px;
     background-color: $white;
     border-radius: 3px;
+    cursor: pointer;
   }
 }
 
@@ -286,6 +294,9 @@ ul.results {
   max-height: 0;
   transition: max-height 0.3s ease-in-out;
   padding-left: 57px;
+  box-shadow: 0px 7px 7px rgba(0, 0, 0, 0.3);
+  list-style: none;
+  text-align: left;
 
   &--show {
     border-top: 1px solid $light-gray;
@@ -293,19 +304,17 @@ ul.results {
   }
 
   .result {
-    list-style: none;
-    text-align: left;
     color: $mid-gray;
     cursor: pointer;
     padding: 20px 0 15px;
 
     &__title {
       font-size: 1rem;
-  margin:0;
+      margin: 0;
     }
 
     &__about {
-      font-size: .75rem;
+      font-size: 0.75rem;
       margin: 0;
     }
   }
